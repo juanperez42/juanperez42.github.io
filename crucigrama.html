@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Crucigrama</title>
+        <style>
+            *, *::before, *::after {
+                box-sizing: border-box;
+            }
+            html, body {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                height: 100%;
+                font-family:  sans-serif;
+            }
+            .max-width {
+                max-width:650px;
+                margin:0 auto;
+            }
+            .aspect-ratio { 
+                width: 100%;
+                padding-top: 100%;
+                position: relative; 
+            }
+            .clue-container{
+                display:flex;
+                max-width:720px;
+                padding:20px;
+                border: solid 1px #d0d0d0;
+                margin: 10px auto;
+                
+            }
+            .grid-container{
+                margin:auto 0;
+                position: absolute; 
+                width: 100%; 
+                height: 100%;
+                top: 0; 
+                left: 0; 
+                display: flex; 
+                flex-direction: column;
+            }
+        
+            .grid-row{
+                display: flex; 
+                flex-grow: 1;
+                align-content: stretch; 
+                align-items: stretch;
+            }
+            .grid-cell{
+                position:relative;
+                
+                display:flex;
+                flex-grow: 1;
+                
+            }
+            .grid-cell-input{
+                text-align:center;
+                border: solid 1px #404040;
+                font-weight:700;
+                width:100%;
+                text-transform: uppercase;
+                font-size: 16px;
+                cursor: pointer;
+                border-radius: 0;
+                margin:0;
+                padding: 0;
+                
+            }
+            .grid-cell-input:focus{
+                background-color:#99ccff;
+                caret-color: transparent;
+            }
+            .grid-row:focus{
+                 background-color:#99ccff;
+            }
+            .grid-cell-input:disabled{
+                color:#404040;
+                background-color:#404040;
+            }
+            .code-section{
+                font-family:  monospace;
+                border: solid 1px #dcdcdc;
+                border-radius:5px;
+                padding:10px;
+                background-color:#e8e8e8;
+                overflow-x: auto;
+                white-space:nowrap;
+                width:100%
+            }
+            .solution{
+                color:#4caf50;
+            }
+            .center{
+                text-align: center;
+                margin: auto;
+            }
+            .pt-100{
+                padding-top:100px;
+            }
+            .label-count{
+                font-size:10px;
+                position:absolute;
+                color:#404040;
+                top: 0;
+                left: 2px;
+                font-weight:bold
+            }
+            .hint-container {
+                width:50%;
+            }
+            .hints{
+                width:100%;
+                list-style:none;
+                text-align:left;
+                height:150px;
+                padding-top:15px;
+                padding-left:10px;
+                overflow-y: scroll;
+            }
+            .hint-list{
+                max-width:100%;
+            }
+            .line{
+                border: solid 1px #d0d0d0;
+            }
+            .mb-30{
+                margin-bottom:30px;
+            }
+            .mt-10{
+                margin-top:10px;
+            }
+            .mb-10{
+                margin-bottom:10px;
+            }
+            .timer {
+                font-size:20px;
+                padding-bottom:20px;
+            }
+            .container {
+                width:75%;
+                max-width: 650px;
+            }
+        
+        </style>
+    </head>
+    <body>
+        
+            <div id="app">
+                <p class="center mt-10 mb-10" v-if="!isMobile">Navega con las flechas direccionales en el teclado</p>
+                 <div class="timer center">
+                    {{displayMinutes}} :
+                    {{displaySeconds}}
+                </div>
+                <form autocomplete="off">
+                    <div class="max-width">
+                        <div class="aspect-ratio">
+                            <div ref="gridRef" class="grid-container">
+                                <div v-for="(row, rowIndex) in gameMatrix" class="grid-row">
+                                    <div v-for="(cell, colIndex) in row" class="grid-cell" >
+                                        <template v-for="hint in hints">
+                                            <label v-if="hint.row === rowIndex && hint.col === colIndex" class="label-count">{{ hint.label }}</label>
+                                        </template>
+
+                                    <input ref="cells" type="text" v-bind:value="cell.value"
+                                    v-on:keydown="onKeyDown(cell, $event, rowIndex, colIndex)"
+                                    v-on:input="onInput(cell, $event)"
+                                    class="grid-cell-input" :disabled="cell.isDisabled" autocomplete="new-password">
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- <pre>{{ log.join('\n') }}</pre> -->
+                
+                <div class="clue-container">
+                    <div class="center hint-container">
+                        <h3 class="center">Horizontales</h3>
+                            <ul class="hints">
+                                <li v-for="hint in horizontalHints" class="hint-list">
+                                    <strong>{{ hint.label + ". " }}</strong>
+                                    <span>{{ hint.hhint }}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    <hr class="line">
+                    <div class="center hint-container">
+                        <h3 class="center">Verticales</h3>
+                            <ul class="hints">
+                                <li v-for="hint in verticalHints" class="hint-list">
+                                    <strong>{{ hint.label + ". " }}</strong>
+                                    <span>{{ hint.vhint }}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                <div class="container center">
+                        <h2 v-show="isSolved" class="solution">Solución Correcta</h2>
+                </div>
+                <div v-if="isWindow" class="container center mb-30">
+                    <h2>Instrucciones</h2>
+                    <p>Haz click en el recuadro y utiliza "ctrl + c" o click derecho y copiar</p>
+                    <p>Pegar en la vista donde desea mostrar el juego</p>
+                    <input v-bind:value="location" v-on:focus="$event.target.select()" class="code-section" readonly>
+                </div>
+            </div>
+        
+
+        <script src="https://cdn.jsdelivr.net/npm/vue@2.5.16/dist/vue.js"></script>
+       <script type="application/json" id="hints">
+            [{"col":0,"row":0,"label":"1","hhint":"Unen con cuerdas.","vhint":"Sustancia de composición semejante a las hormonas y que es excretada por las plantas."},{"col":1,"row":0,"label":"2","hhint":"","vhint":"Símbolo del tulio."},{"col":2,"row":0,"label":"3","hhint":"","vhint":"Descubres lo que está cerrado u oculto."},{"col":3,"row":0,"label":"4","hhint":"","vhint":"(Papá) Figura navideña."},{"col":5,"row":0,"label":"5","hhint":"Embistieses, acometieses.","vhint":"Árbol ilicíneo, de hojas grandes, duras y espinosas (pl.)."},{"col":6,"row":0,"label":"6","hhint":"","vhint":"Interjección \"¡Tate!\"."},{"col":7,"row":0,"label":"7","hhint":"","vhint":"Sujeción."},{"col":8,"row":0,"label":"8","hhint":"","vhint":"Arbolillo esterculiáceo de los países tropicales, cuyas semillas es el principal ingrediente del chocolate. "},{"col":10,"row":0,"label":"9","hhint":"","vhint":"Árbol leguminoso de América Meridional, cuya semilla se usa para aromatizar el rapé."},{"col":11,"row":0,"label":"10","hhint":"","vhint":"Pronombre demostrativo."},{"col":12,"row":0,"label":"11","hhint":"","vhint":"Hará sisas en la ropa. "},{"col":0,"row":1,"label":"12","hhint":"Parte de la concha de un molusco bivalvo.","vhint":""},{"col":5,"row":1,"label":"13","hhint":"Mueble para dormir. ","vhint":""},{"col":10,"row":1,"label":"14","hhint":"De esta manera.","vhint":""},{"col":2,"row":2,"label":"15","hhint":"Relevador.","vhint":""},{"col":4,"row":2,"label":"16","hhint":"","vhint":"(Jacques, 1901-1981) Psicoanalista francés opuesto a las ideas de Freud."},{"col":7,"row":2,"label":"17","hhint":"Acáridos.","vhint":""},{"col":9,"row":2,"label":"18","hhint":"","vhint":"Proveía de armas a uno. "},{"col":2,"row":3,"label":"19","hhint":"Preparará un producto por medio de un trabajo adecuado.","vhint":""},{"col":6,"row":3,"label":"20","hhint":"","vhint":"Terreno cubierto de ortigas."},{"col":0,"row":4,"label":"21","hhint":"Forma del pronombre \"nosotros\".","vhint":""},{"col":1,"row":4,"label":"22","hhint":"","vhint":"Ónix."},{"col":4,"row":4,"label":"23","hhint":"Alterar y trastocar la forma de una cosa.","vhint":""},{"col":11,"row":4,"label":"24","hhint":"","vhint":"Ensaye."},{"col":0,"row":5,"label":"25","hhint":"Partícula inseparable privativa.","vhint":""},{"col":3,"row":5,"label":"26","hhint":"Sin pulimentar, de calidad baja.","vhint":"Árbol tropical bombáceo."},{"col":9,"row":5,"label":"27","hhint":"Presto, fácilmente.","vhint":""},{"col":1,"row":6,"label":"28","hhint":"Actual nombre de Persia.","vhint":""},{"col":2,"row":6,"label":"29","hhint":"","vhint":"Áspero, violento, intratable. "},{"col":8,"row":6,"label":"30","hhint":"Tío de Mahoma.","vhint":"Atiesa."},{"col":0,"row":7,"label":"31","hhint":"Diversión u ocupación agradable.","vhint":"Pondrá algo al viento para refrescarlo."},{"col":5,"row":7,"label":"32","hhint":"Variedad de calcedonia, translúcida, de colores generalmente dispuestos en fajas.","vhint":"Poner tonto o lelo."},{"col":7,"row":7,"label":"33","hhint":"","vhint":"Agarrarán. "},{"col":11,"row":7,"label":"34","hhint":"Interjección que denota alivio.","vhint":""},{"col":12,"row":7,"label":"35","hhint":"","vhint":"Parte superior y lateral del tronco, de donde nace el brazo."},{"col":0,"row":8,"label":"36","hhint":"Escurriese, deslizase. ","vhint":""},{"col":4,"row":8,"label":"37","hhint":"","vhint":"Intenta asir. "},{"col":10,"row":8,"label":"38","hhint":"Percibió el sonido.","vhint":"Ojo de agua y vegetación en el desierto."},{"col":2,"row":9,"label":"39","hhint":"Fabricante o almacenista de papel.","vhint":""},{"col":9,"row":9,"label":"40","hhint":"","vhint":"Tengo miedo de algo."},{"col":0,"row":10,"label":"41","hhint":"(247-182 a.C.) General político cartaginés, hijo de Amilcar Barca.","vhint":""},{"col":1,"row":10,"label":"42","hhint":"","vhint":"Aféresis de nacional."},{"col":7,"row":10,"label":"43","hhint":"Quitas algo raspando.","vhint":""},{"col":0,"row":11,"label":"44","hhint":"Unidad de radiactividad.","vhint":""},{"col":4,"row":11,"label":"45","hhint":"Pez marino seláceo rayiforme, comestible, de cuerpo aplastado.","vhint":""},{"col":6,"row":11,"label":"46","hhint":"","vhint":"Ahora."},{"col":9,"row":11,"label":"47","hhint":"Maullar.","vhint":""},{"col":11,"row":11,"label":"48","hhint":"","vhint":"Contracción."},{"col":0,"row":12,"label":"49","hhint":"Ararán la tierra formando lomos.","vhint":""},{"col":9,"row":12,"label":"50","hhint":"Ciudad capital de Noruega.","vhint":""}]
+        </script>
+        <script type="application/json" id="solved_matrix">
+            [[{"value":"a","isDisabled":false},{"value":"t","isDisabled":false},{"value":"a","isDisabled":false},{"value":"n","isDisabled":false},{"value":"","isDisabled":true},{"value":"a","isDisabled":false},{"value":"t","isDisabled":false},{"value":"a","isDisabled":false},{"value":"c","isDisabled":false},{"value":"a","isDisabled":false},{"value":"s","isDisabled":false},{"value":"e","isDisabled":false},{"value":"s","isDisabled":false}],[{"value":"u","isDisabled":false},{"value":"m","isDisabled":false},{"value":"b","isDisabled":false},{"value":"o","isDisabled":false},{"value":"","isDisabled":true},{"value":"c","isDisabled":false},{"value":"a","isDisabled":false},{"value":"m","isDisabled":false},{"value":"a","isDisabled":false},{"value":"","isDisabled":true},{"value":"a","isDisabled":false},{"value":"s","isDisabled":false},{"value":"i","isDisabled":false}],[{"value":"x","isDisabled":false},{"value":"","isDisabled":true},{"value":"r","isDisabled":false},{"value":"e","isDisabled":false},{"value":"l","isDisabled":false},{"value":"e","isDisabled":false},{"value":"","isDisabled":true},{"value":"a","isDisabled":false},{"value":"c","isDisabled":false},{"value":"a","isDisabled":false},{"value":"r","isDisabled":false},{"value":"o","isDisabled":false},{"value":"s","isDisabled":false}],[{"value":"i","isDisabled":false},{"value":"","isDisabled":true},{"value":"e","isDisabled":false},{"value":"l","isDisabled":false},{"value":"a","isDisabled":false},{"value":"b","isDisabled":false},{"value":"o","isDisabled":false},{"value":"r","isDisabled":false},{"value":"a","isDisabled":false},{"value":"r","isDisabled":false},{"value":"a","isDisabled":false},{"value":"","isDisabled":true},{"value":"a","isDisabled":false}],[{"value":"n","isDisabled":false},{"value":"o","isDisabled":false},{"value":"s","isDisabled":false},{"value":"","isDisabled":true},{"value":"c","isDisabled":false},{"value":"o","isDisabled":false},{"value":"r","isDisabled":false},{"value":"r","isDisabled":false},{"value":"o","isDisabled":false},{"value":"m","isDisabled":false},{"value":"p","isDisabled":false},{"value":"e","isDisabled":false},{"value":"r","isDisabled":false}],[{"value":"a","isDisabled":false},{"value":"n","isDisabled":false},{"value":"","isDisabled":true},{"value":"b","isDisabled":false},{"value":"a","isDisabled":false},{"value":"s","isDisabled":false},{"value":"t","isDisabled":false},{"value":"o","isDisabled":false},{"value":"","isDisabled":true},{"value":"a","isDisabled":false},{"value":"i","isDisabled":false},{"value":"n","isDisabled":false},{"value":"a","isDisabled":false}],[{"value":"","isDisabled":true},{"value":"i","isDisabled":false},{"value":"r","isDisabled":false},{"value":"a","isDisabled":false},{"value":"n","isDisabled":false},{"value":"","isDisabled":true},{"value":"i","isDisabled":false},{"value":"","isDisabled":true},{"value":"a","isDisabled":false},{"value":"b","isDisabled":false},{"value":"a","isDisabled":false},{"value":"s","isDisabled":false},{"value":"","isDisabled":true}],[{"value":"o","isDisabled":false},{"value":"c","isDisabled":false},{"value":"i","isDisabled":false},{"value":"o","isDisabled":false},{"value":"","isDisabled":true},{"value":"a","isDisabled":false},{"value":"g","isDisabled":false},{"value":"a","isDisabled":false},{"value":"t","isDisabled":false},{"value":"a","isDisabled":false},{"value":"","isDisabled":true},{"value":"a","isDisabled":false},{"value":"h","isDisabled":false}],[{"value":"r","isDisabled":false},{"value":"e","isDisabled":false},{"value":"s","isDisabled":false},{"value":"b","isDisabled":false},{"value":"a","isDisabled":false},{"value":"l","isDisabled":false},{"value":"a","isDisabled":false},{"value":"s","isDisabled":false},{"value":"e","isDisabled":false},{"value":"","isDisabled":true},{"value":"o","isDisabled":false},{"value":"y","isDisabled":false},{"value":"o","isDisabled":false}],[{"value":"e","isDisabled":false},{"value":"","isDisabled":true},{"value":"p","isDisabled":false},{"value":"a","isDisabled":false},{"value":"p","isDisabled":false},{"value":"e","isDisabled":false},{"value":"l","isDisabled":false},{"value":"i","isDisabled":false},{"value":"s","isDisabled":false},{"value":"t","isDisabled":false},{"value":"a","isDisabled":false},{"value":"","isDisabled":true},{"value":"m","isDisabled":false}],[{"value":"a","isDisabled":false},{"value":"n","isDisabled":false},{"value":"i","isDisabled":false},{"value":"b","isDisabled":false},{"value":"a","isDisabled":false},{"value":"l","isDisabled":false},{"value":"","isDisabled":true},{"value":"r","isDisabled":false},{"value":"a","isDisabled":false},{"value":"e","isDisabled":false},{"value":"s","isDisabled":false},{"value":"","isDisabled":true},{"value":"b","isDisabled":false}],[{"value":"r","isDisabled":false},{"value":"a","isDisabled":false},{"value":"d","isDisabled":false},{"value":"","isDisabled":true},{"value":"r","isDisabled":false},{"value":"a","isDisabled":false},{"value":"y","isDisabled":false},{"value":"a","isDisabled":false},{"value":"","isDisabled":true},{"value":"m","isDisabled":false},{"value":"i","isDisabled":false},{"value":"a","isDisabled":false},{"value":"r","isDisabled":false}],[{"value":"a","isDisabled":false},{"value":"l","isDisabled":false},{"value":"o","isDisabled":false},{"value":"m","isDisabled":false},{"value":"a","isDisabled":false},{"value":"r","isDisabled":false},{"value":"a","isDisabled":false},{"value":"n","isDisabled":false},{"value":"","isDisabled":true},{"value":"o","isDisabled":false},{"value":"s","isDisabled":false},{"value":"l","isDisabled":false},{"value":"o","isDisabled":false}]]
+        </script>
+        <script>
+            var hintList = JSON.parse(document.querySelector('#hints').textContent)
+            var solvedMatrix = JSON.parse(document.querySelector('#solved_matrix').textContent)
+            var numRows = solvedMatrix.length
+            var numCols = solvedMatrix[0].length
+            var regex = /^[a-zñ]$/i
+            var timer
+
+            var app = new Vue({
+                el: '#app',
+                data: {
+                    //user inputs
+                    gameMatrix:[],
+                    //compare result
+                    solvedMatrix: [],
+                    //hint list
+                    vhints:[],
+                    hhints:[],
+                    displaySeconds: '00',
+                    displayMinutes: '00',
+                    displayHours:0,
+                    isWindow: true,
+                    isMobile: true,
+                    isSolved: false,
+                    //cellSize: 'width: calc(' + (intFrameWidth-(intFrameWidth/2)) + 'px/'+ numRows + '); height: calc(' + (intFrameWidth-(intFrameWidth/2)) +'px/'+ numRows + ');',
+                    location: '<iframe src="' + window.location.href + '" width="100%" height="910" style="border:none;"></iframe>',
+                    log: []
+                },
+                computed: {
+                    horizontalHints: function () {
+                        return hintList.filter(function (hint) {
+                            return hint.hhint !== ''
+                            
+                        })
+                    },
+                    verticalHints: function () {
+                        return hintList.filter(function (hint) {
+                            return hint.vhint !== ''
+                        })
+                    },
+                },
+                created: function () {
+                    this.gameMatrix = solvedMatrix.map(function (row) {
+                        return row.map(function (cell) {
+                            return { value: '', isDisabled: cell.isDisabled }
+                        })
+                    })
+                    
+                    this.solvedMatrix = JSON.parse(JSON.stringify(solvedMatrix))
+                    this.hints = JSON.parse(JSON.stringify(hintList))
+                    this.cols = numCols
+                    this.rows = numRows
+                    this.isWindow = window.top == window.self 
+                    this.isMobile = /iPad|iPhone|iPod|android|webOS/i.test(navigator.userAgent)
+                    this.timer()
+                },
+                methods: {
+                     formatNum: function(value){
+                            var valueString = value + ""
+                            if(valueString.length < 2)
+                            {
+                                return "0" + valueString
+                            }
+                            else
+                            {
+                                return valueString
+                            }
+                    },
+                     timer: function(){
+                        var totalSeconds = 0
+                        timer = setInterval(function () {
+                            ++totalSeconds
+                            this.displayHours = this.formatNum(Math.floor(totalSeconds /3600))
+                            this.displayMinutes = this.formatNum(Math.floor((totalSeconds - this.displayHours * 3600)/60))
+                            this.displaySeconds = this.formatNum(totalSeconds % 60)
+                        }.bind(this), 1000)
+                    },
+                    checkPuzzle: function() {
+                        //making user entry solution array into a single string 
+                        var currentSolution = this.gameMatrix.map(function (row) {
+                            return row.map(function (cell) { return cell.value }).join('')
+                        }).join('').toUpperCase()
+                        //making the solution innto a string and comparing both to match
+                        this.isSolved = currentSolution === this.solvedMatrix.map(function (row) {
+                            return row.map(function(cell){ return cell.value }).join('')
+                        }).join('').toUpperCase()
+                        
+                        // conditionn && (statement)
+                        //Stoping the timer once is solved
+                        this.isSolved && (clearInterval(timer))
+                    },
+                    onKeyDown: function(cell, event, row, col, ref) {
+                        // don't enter move logic when arrow key isn't pressed
+                        if ([8, 37, 38, 39, 40, 46].indexOf(event.keyCode) === -1) return
+
+                        var shouldSearchTarget = true
+                        var targetIndex = (row * numCols) + col
+
+                        while (shouldSearchTarget) {
+                            var previousTargetIndex = targetIndex
+
+                            switch (event.keyCode) {
+
+                                case 8:
+                                case 46:
+                                cell.value = ''
+                                this.checkPuzzle();
+                                break
+                                //left
+                                case 37:
+                                    //short circuit if statement 
+                                    // conditionn && (statement)
+                                    targetIndex > 0 && (targetIndex -= 1)
+                                    break
+                                //up
+                                case 38:
+                                    targetIndex >= numCols && (targetIndex -= numCols)
+                                    break
+                                //right    
+                                case 39:
+                                    targetIndex < (numRows * numCols) - 1 && (targetIndex += 1)
+                                    break
+                                //down    
+                                case 40:
+                                    targetIndex < (numRows - 1) * numCols && (targetIndex += numCols)
+                                    break
+                            }
+
+                            shouldSearchTarget = targetIndex !== previousTargetIndex && this.$refs.cells[targetIndex].disabled
+                        }
+                        this.$refs.cells[targetIndex].focus()
+                    },
+                    onInput: function (cell, event) {
+                        var key = event.target.value.substr(-1)
+                        this.log.push('key: ' + key)
+                        
+                        if (regex.test(key) || key === '') {
+                            cell.value = key
+                            this.checkPuzzle()
+                        }
+                        
+                        this.$forceUpdate()
+                    }
+                }
+            })
+
+        </script>
+    </body>
+</html>

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap-reboot.css">
+        <title>Sudoku</title>
+        <style>
+            *, *::before, *::after {
+                box-sizing: border-box;
+            }
+            input::-webkit-outer-spin-button,
+            input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+            }
+        
+            html, body {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                height: 100%;
+                font-family:  sans-serif;
+            }
+            .container{
+                width:100%;
+                max-width:360px;
+                margin:0 auto;
+            }
+            .grid-container{
+               width:100%;
+               max-width:360px;
+               margin:0 auto;
+            }
+            
+            .grid-row{
+                display: flex;
+                justify-content: center;
+            }
+            .grid-cell{
+                width: 11.111111%;
+                height:11.111111%;
+            }
+            .grid-cell-input{
+                text-align:center;
+                border: solid 1px #404040;
+                font-weight:700;
+                width:100%;
+                height:40px;
+                text-transform: uppercase;
+                font-size: 16px;
+                cursor: pointer;
+                padding: 0;
+                border-radius: 0;
+                margin:0;
+                -moz-appearance: textfield;
+                border-radius: 0;
+                
+            }
+            .grid-cell-input:focus{
+                background-color:#99ccff !important;
+                caret-color: transparent;
+                border:none!important;
+            }
+            .grid-cell-input:disabled{
+                -webkit-filter: saturate(50%)  brightness(112%);
+                -webkit-text-fill-color:  #363636;
+                -webkit-opacity: 1;
+                filter: saturate(50%)  brightness(112%);
+                border: solid 1px #363636;
+                color: #363636;
+                font-weight: 600;
+                cursor: default;
+                opacity: 1;
+            }
+            .code-section{
+                font-family:  monospace;
+                border: solid 1px #dcdcdc;
+                border-radius:5px;
+                padding:10px;
+                background-color:#e8e8e8;
+                overflow-x: auto;
+                white-space:nowrap;
+                width:100%
+            }
+            .solution{
+                color:#4caf50;
+            }
+            /* SUDOKU ONLY*/
+            
+           .grid-container :nth-child(3) , .grid-container :nth-child(6) {
+                border-bottom:solid 2px #404040;
+            }
+            .grid-row :nth-child(3) , .grid-row :nth-child(6) {
+                border-right:solid 2px #404040;
+                border-bottom: none;
+            }
+
+
+
+
+            /*First Column */
+            .grid-row:nth-child(-n+3) .grid-cell:nth-child(-n+3) .grid-cell-input {
+                background-color:#fcd3c1;
+            }
+
+            .grid-row:nth-child(n+4):nth-child(-n+6) .grid-cell:nth-child(-n+3) .grid-cell-input {
+                background-color:#fff584;
+            }
+
+            .grid-row:nth-child(n+7):nth-child(-n+9) .grid-cell:nth-child(-n+3) .grid-cell-input {
+                background-color:#d2e289;
+            }
+
+
+            /* Second Column */
+            .grid-row:nth-child(-n+3) .grid-cell:nth-child(n+4):nth-child(-n+6) .grid-cell-input {
+                background-color:#53c5d0;
+            }
+            
+            .grid-row:nth-child(n+4):nth-child(-n+6) .grid-cell:nth-child(n+4):nth-child(-n+6) .grid-cell-input {
+                background-color:#8cd8f8;
+            }
+
+            .grid-row:nth-child(n+7):nth-child(-n+9) .grid-cell:nth-child(n+4):nth-child(-n+6) .grid-cell-input {
+                background-color:#d2d3d5;
+            }
+
+            
+            /* Third Column */
+            .grid-row:nth-child(-n+3) .grid-cell:nth-child(n+7):nth-child(-n+9) .grid-cell-input {
+                background-color:#fed09e;
+            }
+            
+            .grid-row:nth-child(n+4):nth-child(-n+6) .grid-cell:nth-child(n+7):nth-child(-n+9) .grid-cell-input {
+                background-color:#cbe6d3;
+            }
+
+            .grid-row:nth-child(n+7):nth-child(-n+9) .grid-cell:nth-child(n+7):nth-child(-n+9) .grid-cell-input {
+                background-color:#f7adce;
+            }
+         
+
+            /*SUDOKU ONLY*/
+            .center{
+                text-align: center;
+                margin: auto;
+            }
+            .pt-100{
+                padding-top:100px;
+            }
+            .mt-20{
+                margin-top:20px;
+            }
+            .mb-20{
+                margin-bottom:20px;
+            }
+            .timer {
+                font-size:20px;
+                padding-bottom:10px;
+            }
+        
+        </style>
+    </head>
+    <body>
+        
+            <div id="app">
+                <p class="center mt-20 mb-20" v-if="!isMobile">Navega con las flechas direccionales en el teclado</p>
+                <div class="timer center">
+                    {{displayMinutes}} :
+                    {{displaySeconds}}
+                </div>
+                <form autocomplete="off">
+                    <div ref="gridRef" class="grid-container">
+                        <div v-for="(row, rowIndex) in gameMatrix" class="grid-row">
+                            <div v-for="(cell, colIndex) in row" class="grid-cell">
+
+                            <input ref="cells" v-bind:type="isMobile ? 'number' : 'text'" v-bind:value="cell.value" 
+                            v-on:keydown.prevent="onKeyDown(cell, $event, rowIndex, colIndex)" class="grid-cell-input" 
+                            v-bind:disabled="cell.isDisabled" autocomplete="new-password" />
+
+                            </div>
+                        </div>
+                    </div>
+                </form>
+                <!--<pre>{{ log.join('\n') }}</pre>-->
+                <div class="container center">
+                    <h2 v-show="isSolved" class="solution">Solución Correcta</h2>
+                </div>
+                <div v-if="isWindow" class="container center">
+                    <h2>Instrucciones</h2>
+                    <p>Haz click en el recuadro y utiliza "ctrl + c" o click derecho y copiar</p>
+                    <p>Pegar en la vista donde desea mostrar el juego</p>
+                    <input v-bind:value="location" v-on:focus="$event.target.select()" class="code-section" readonly>
+                </div>
+            </div>
+        
+
+        <script src="https://cdn.jsdelivr.net/npm/vue@2.5.16/dist/vue.js"></script>
+        <script type="application/json" id="matrix">
+            [[{"value":"3","isDisabled":true},{"value":"4","isDisabled":true},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"1","isDisabled":true},{"value":"9","isDisabled":true},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"","isDisabled":false}],[{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"5","isDisabled":true}],[{"value":"2","isDisabled":true},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"7","isDisabled":true},{"value":"3","isDisabled":true},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"9","isDisabled":true},{"value":"","isDisabled":false}],[{"value":"","isDisabled":false},{"value":"9","isDisabled":true},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"6","isDisabled":true},{"value":"","isDisabled":false},{"value":"","isDisabled":false}],[{"value":"","isDisabled":false},{"value":"5","isDisabled":true},{"value":"8","isDisabled":true},{"value":"2","isDisabled":true},{"value":"","isDisabled":false},{"value":"6","isDisabled":true},{"value":"4","isDisabled":true},{"value":"1","isDisabled":true},{"value":"","isDisabled":false}],[{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"6","isDisabled":true},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"7","isDisabled":true},{"value":"","isDisabled":false}],[{"value":"","isDisabled":false},{"value":"3","isDisabled":true},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"7","isDisabled":true},{"value":"4","isDisabled":true},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"6","isDisabled":true}],[{"value":"6","isDisabled":true},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"","isDisabled":false}],[{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"9","isDisabled":true},{"value":"6","isDisabled":true},{"value":"","isDisabled":false},{"value":"","isDisabled":false},{"value":"5","isDisabled":true},{"value":"2","isDisabled":true}]]
+        </script>
+        <script type="application/json" id="solved_matrix">
+            [[{"value":"3"},{"value":"4"},{"value":"5"},{"value":"8"},{"value":"1"},{"value":"9"},{"value":"2"},{"value":"6"},{"value":"7"}],[{"value":"9"},{"value":"8"},{"value":"7"},{"value":"6"},{"value":"4"},{"value":"2"},{"value":"1"},{"value":"3"},{"value":"5"}],[{"value":"2"},{"value":"6"},{"value":"1"},{"value":"7"},{"value":"3"},{"value":"5"},{"value":"8"},{"value":"9"},{"value":"4"}],[{"value":"1"},{"value":"9"},{"value":"3"},{"value":"4"},{"value":"5"},{"value":"7"},{"value":"6"},{"value":"2"},{"value":"8"}],[{"value":"7"},{"value":"5"},{"value":"8"},{"value":"2"},{"value":"9"},{"value":"6"},{"value":"4"},{"value":"1"},{"value":"3"}],[{"value":"4"},{"value":"2"},{"value":"6"},{"value":"3"},{"value":"8"},{"value":"1"},{"value":"5"},{"value":"7"},{"value":"9"}],[{"value":"5"},{"value":"3"},{"value":"2"},{"value":"1"},{"value":"7"},{"value":"4"},{"value":"9"},{"value":"8"},{"value":"6"}],[{"value":"6"},{"value":"7"},{"value":"9"},{"value":"5"},{"value":"2"},{"value":"8"},{"value":"3"},{"value":"4"},{"value":"1"}],[{"value":"8"},{"value":"1"},{"value":"4"},{"value":"9"},{"value":"6"},{"value":"3"},{"value":"7"},{"value":"5"},{"value":"2"}]]
+        </script>
+        <script>
+                    
+            var defaultInitialState = JSON.parse(document.querySelector('#matrix').textContent)
+            var defaultSolvedState = JSON.parse(document.querySelector('#solved_matrix').textContent)
+            var numRows = defaultInitialState.length
+            var numCols = defaultInitialState[0].length
+            var regex = /^[1-9]$/
+            var timer
+
+
+            var app = new Vue({
+                el: '#app',
+                data: {
+                    gameMatrix: [],
+                    displaySeconds: '00',
+                    displayMinutes: '00',
+                    displayHours: '00',
+                    isWindow: true,
+                    isMobile: true,
+                    isSolved: false,
+                    location: '<iframe src="' + window.location.href + '" width="100%" height="490" style="border:none;"></iframe>',
+                    log: []
+                },
+                created: function () {
+                    // deep cloning the array of array of objects
+                    var copy = JSON.parse(JSON.stringify(defaultInitialState))
+                    this.gameMatrix = copy
+                    this.isWindow = window.top == window.self 
+                    this.isMobile = /iPad|iPhone|iPod|android|webOS/i.test(navigator.userAgent)
+                    this.timer()
+                },
+                methods: {
+                    formatNum: function(value){
+                            var valueString = value + ''
+                            if(valueString.length < 2)
+                            {
+                                return '0' + valueString
+                            }
+                            else
+                            {
+                                return valueString
+                            }
+                    },
+                    timer: function(){
+                        var totalSeconds = 0
+                        timer = setInterval(function () {
+                            ++totalSeconds
+                            this.displayHours = this.formatNum(Math.floor(totalSeconds /3600))
+                            this.displayMinutes = this.formatNum(Math.floor((totalSeconds - this.displayHours * 3600)/60))
+                            this.displaySeconds = this.formatNum(totalSeconds % 60)
+                        }.bind(this), 1000)
+                    },
+                    checkPuzzle: function() {
+                        //making user entry solution array into a single string 
+                        var currentSolution = this.gameMatrix.map(function (row) {
+                            return row.map(function (cell) { return cell.value }).join('')
+                        }).join('').toUpperCase()
+                        //making the solution innto a string and comparing both to match
+                        this.isSolved = currentSolution === defaultSolvedState.map(function (row) {
+                            return row.map(function(cell){ return cell.value }).join('')
+                        }).join('').toUpperCase()
+
+                        // conditionn && (statement)
+                        //Stoping the timer once is solved
+                        this.isSolved && (clearInterval(timer))
+                        
+                    },
+                    onKeyDown: function(cell, event, row, col) {
+                        this.log.push('key: ' + event.key + ' keyCode: ' + event.keyCode)
+                        
+                        if (regex.test(event.key)) {
+                            cell.value = event.key
+                            this.checkPuzzle();
+                        }
+
+                        // don't enter move logic when arrow key isn't pressed
+                        if ([8, 37, 38, 39, 40, 46].indexOf(event.keyCode) === -1) return
+
+                        var shouldSearchTarget = true
+                        var targetIndex = (row * numCols) + col
+
+                        while (shouldSearchTarget) {
+                            var previousTargetIndex = targetIndex
+
+                            switch (event.keyCode) {
+
+                                case 8:
+                                case 46:
+                                cell.value = ''
+                                this.checkPuzzle();
+                                break
+                                //left
+                                case 37:
+                                    //short circuit if statement 
+                                    // conditionn && (statement)
+                                    targetIndex > 0 && (targetIndex -= 1)
+                                    break
+                                //up
+                                case 38:
+                                    targetIndex >= numCols && (targetIndex -= numCols)
+                                    break
+                                //right    
+                                case 39:
+                                    targetIndex < (numRows * numCols) - 1 && (targetIndex += 1)
+                                    break
+                                //down    
+                                case 40:
+                                    targetIndex < (numRows - 1) * numCols && (targetIndex += numCols)
+                                    break
+                            }
+
+                            shouldSearchTarget = targetIndex !== previousTargetIndex && this.$refs.cells[targetIndex].disabled
+                        }
+                        this.$refs.cells[targetIndex].focus()
+                    }
+                }
+            })
+
+        </script>
+    </body>
+</html>
